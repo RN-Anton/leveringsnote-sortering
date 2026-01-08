@@ -1,38 +1,34 @@
 import { useState, useCallback } from "react";
 import { pdfjsLib } from "@/lib/pdfWorker";
+import { toast } from "sonner";
 import type { DeliveryNote, PDFDocument } from "@/types/pdf";
-
-// Generate unique ID (in production, use uuid or backend-generated IDs)
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
+import * as api from "@/services/api";
 
 export function useDeliveryNotes() {
   const [document, setDocument] = useState<PDFDocument | null>(null);
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNote[]>([]);
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set());
-  const [allocatedPages, setAllocatedPages] = useState<Map<number, string>>(
-    new Map()
-  );
+  const [allocatedPages, setAllocatedPages] = useState<Map<number, string>>(new Map());
   const [removedPages, setRemovedPages] = useState<Set<number>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastCreatedNoteId, setLastCreatedNoteId] = useState<string | null>(null);
 
-  // Handle file upload - replaces current PDF
+  // Handle file upload - uploads to backend
   const handleFileUpload = useCallback(async (file: File) => {
     setIsProcessing(true);
 
     try {
-      // Get actual page count from PDF
+      // Upload to backend
+      const uploadedDoc = await api.uploadDocument(file);
+
+      // Also get page count locally for thumbnail rendering
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      const pageCount = pdf.numPages;
-
+      
       const newDocument: PDFDocument = {
-        id: generateId(),
-        originalFilename: file.name,
-        uploadDate: new Date(),
-        pageCount,
+        ...uploadedDoc,
+        pageCount: pdf.numPages,
         file,
       };
 
@@ -43,26 +39,38 @@ export function useDeliveryNotes() {
       setRemovedPages(new Set());
       setDeliveryNotes([]);
       setLastCreatedNoteId(null);
+
+      toast.success("PDF uploadet successfully");
     } catch (error) {
-      console.error("Error loading PDF:", error);
+      console.error("Error uploading PDF:", error);
+      toast.error(error instanceof Error ? error.message : "Kunne ikke uploade PDF");
     } finally {
       setIsProcessing(false);
     }
   }, []);
 
-  // Remove entire document
-  const clearDocument = useCallback(() => {
+  // Remove entire document from backend
+  const clearDocument = useCallback(async () => {
+    if (document) {
+      try {
+        await api.deleteDocument(document.id);
+        toast.success("PDF slettet");
+      } catch (error) {
+        console.error("Error deleting document:", error);
+        // Still clear locally even if backend fails
+      }
+    }
+    
     setDocument(null);
     setSelectedPages(new Set());
     setAllocatedPages(new Map());
     setRemovedPages(new Set());
     setDeliveryNotes([]);
     setLastCreatedNoteId(null);
-  }, []);
+  }, [document]);
 
-  // Remove a single page (hide it from selection)
+  // Remove a single page (hide it from selection - local only)
   const removePage = useCallback((pageNumber: number) => {
-    // Can't remove allocated pages
     if (allocatedPages.has(pageNumber)) return;
 
     setRemovedPages((prev) => {
@@ -71,7 +79,6 @@ export function useDeliveryNotes() {
       return next;
     });
 
-    // Also remove from selection if selected
     setSelectedPages((prev) => {
       const next = new Set(prev);
       next.delete(pageNumber);
@@ -116,70 +123,68 @@ export function useDeliveryNotes() {
     setSelectedPages(new Set());
   }, []);
 
-  // Create delivery note
+  // Create delivery note via API
   const createDeliveryNote = useCallback(
-    (data: { displayName: string; companyName: string }) => {
+    async (data: { displayName: string; companyName: string }) => {
       if (!document || selectedPages.size === 0) return;
 
-      const noteId = generateId();
+      setIsSubmitting(true);
       const pageNumbers = Array.from(selectedPages).sort((a, b) => a - b);
 
-      const newNote: DeliveryNote = {
-        id: noteId,
-        documentId: document.id,
-        displayName: data.displayName,
-        companyName: data.companyName,
-        createdAt: new Date(),
-        pageNumbers,
-      };
+      try {
+        const noteId = await api.createDeliveryNote({
+          documentId: document.id,
+          displayName: data.displayName,
+          companyName: data.companyName,
+          pageNumbers,
+        });
 
-      // Update allocated pages
-      setAllocatedPages((prev) => {
-        const next = new Map(prev);
-        pageNumbers.forEach((page) => next.set(page, noteId));
-        return next;
-      });
+        const newNote: DeliveryNote = {
+          id: noteId,
+          documentId: document.id,
+          displayName: data.displayName,
+          companyName: data.companyName,
+          createdAt: new Date(),
+          pageNumbers,
+        };
 
-      // Add note to list
-      setDeliveryNotes((prev) => [newNote, ...prev]);
+        // Update allocated pages
+        setAllocatedPages((prev) => {
+          const next = new Map(prev);
+          pageNumbers.forEach((page) => next.set(page, noteId));
+          return next;
+        });
 
-      // Clear selection
-      setSelectedPages(new Set());
+        // Add note to list
+        setDeliveryNotes((prev) => [newNote, ...prev]);
 
-      // Track for undo
-      setLastCreatedNoteId(noteId);
+        // Clear selection
+        setSelectedPages(new Set());
 
-      return noteId;
+        // Track for undo
+        setLastCreatedNoteId(noteId);
+
+        toast.success("Følgeseddel oprettet");
+        return noteId;
+      } catch (error) {
+        console.error("Error creating delivery note:", error);
+        toast.error(error instanceof Error ? error.message : "Kunne ikke oprette følgeseddel");
+      } finally {
+        setIsSubmitting(false);
+      }
     },
     [document, selectedPages]
   );
 
-  // Undo last created note
-  const undoLastNote = useCallback(() => {
+  // Undo/delete a delivery note via API
+  const undoLastNote = useCallback(async () => {
     if (!lastCreatedNoteId) return;
 
     const noteToUndo = deliveryNotes.find((n) => n.id === lastCreatedNoteId);
     if (!noteToUndo) return;
 
-    // Remove from allocated pages
-    setAllocatedPages((prev) => {
-      const next = new Map(prev);
-      noteToUndo.pageNumbers.forEach((page) => next.delete(page));
-      return next;
-    });
-
-    // Remove note
-    setDeliveryNotes((prev) => prev.filter((n) => n.id !== lastCreatedNoteId));
-
-    // Clear undo tracking
-    setLastCreatedNoteId(null);
-  }, [lastCreatedNoteId, deliveryNotes]);
-
-  // Undo specific note
-  const undoNote = useCallback(
-    (noteId: string) => {
-      const noteToUndo = deliveryNotes.find((n) => n.id === noteId);
-      if (!noteToUndo) return;
+    try {
+      await api.deleteDeliveryNote(lastCreatedNoteId);
 
       // Remove from allocated pages
       setAllocatedPages((prev) => {
@@ -189,10 +194,45 @@ export function useDeliveryNotes() {
       });
 
       // Remove note
-      setDeliveryNotes((prev) => prev.filter((n) => n.id !== noteId));
+      setDeliveryNotes((prev) => prev.filter((n) => n.id !== lastCreatedNoteId));
 
-      if (lastCreatedNoteId === noteId) {
-        setLastCreatedNoteId(null);
+      // Clear undo tracking
+      setLastCreatedNoteId(null);
+
+      toast.success("Følgeseddel fortrudt");
+    } catch (error) {
+      console.error("Error undoing note:", error);
+      toast.error(error instanceof Error ? error.message : "Kunne ikke fortryde følgeseddel");
+    }
+  }, [lastCreatedNoteId, deliveryNotes]);
+
+  // Undo specific note
+  const undoNote = useCallback(
+    async (noteId: string) => {
+      const noteToUndo = deliveryNotes.find((n) => n.id === noteId);
+      if (!noteToUndo) return;
+
+      try {
+        await api.deleteDeliveryNote(noteId);
+
+        // Remove from allocated pages
+        setAllocatedPages((prev) => {
+          const next = new Map(prev);
+          noteToUndo.pageNumbers.forEach((page) => next.delete(page));
+          return next;
+        });
+
+        // Remove note
+        setDeliveryNotes((prev) => prev.filter((n) => n.id !== noteId));
+
+        if (lastCreatedNoteId === noteId) {
+          setLastCreatedNoteId(null);
+        }
+
+        toast.success("Følgeseddel slettet");
+      } catch (error) {
+        console.error("Error deleting note:", error);
+        toast.error(error instanceof Error ? error.message : "Kunne ikke slette følgeseddel");
       }
     },
     [deliveryNotes, lastCreatedNoteId]
@@ -205,6 +245,7 @@ export function useDeliveryNotes() {
     allocatedPages,
     removedPages,
     isProcessing,
+    isSubmitting,
     lastCreatedNoteId,
     handleFileUpload,
     clearDocument,
