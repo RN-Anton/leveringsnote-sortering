@@ -1,4 +1,4 @@
-import { Undo2, Trash2, RotateCcw } from "lucide-react";
+import { Undo2, Trash2, RotateCcw, CheckCircle2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { UploadZone } from "@/components/UploadZone";
 import { PageGrid } from "@/components/PageGrid";
@@ -19,6 +19,7 @@ const Index = () => {
     lastCreatedNoteId,
     handleFileUpload,
     clearDocument,
+    finishDocument,
     removePage,
     restoreAllPages,
     togglePageSelection,
@@ -86,6 +87,18 @@ const Index = () => {
                     >
                       <Undo2 className="h-4 w-4" />
                       Fortryd seneste
+                    </Button>
+                  )}
+
+                  {/* Done button - clears view but keeps notes */}
+                  {deliveryNotes.length > 0 && (
+                    <Button
+                      variant="success"
+                      onClick={finishDocument}
+                      className="gap-2"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Færdig
                     </Button>
                   )}
 
