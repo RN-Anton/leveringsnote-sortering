@@ -1,4 +1,4 @@
-import { Undo2, Trash2 } from "lucide-react";
+import { Undo2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { UploadZone } from "@/components/UploadZone";
 import { PageGrid } from "@/components/PageGrid";
@@ -13,12 +13,9 @@ const Index = () => {
     deliveryNotes,
     selectedPages,
     allocatedPages,
-    visiblePages,
     isProcessing,
     lastCreatedNoteId,
     handleFileUpload,
-    removeDocument,
-    removePage,
     togglePageSelection,
     clearSelection,
     createDeliveryNote,
@@ -45,27 +42,6 @@ const Index = () => {
             </p>
           </div>
           <UploadZone onFileSelect={handleFileUpload} isProcessing={isProcessing} />
-          
-          {/* Current document info with remove button */}
-          {document && !isProcessing && (
-            <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-card p-4 animate-fade-in">
-              <div>
-                <p className="font-medium text-foreground">{document.originalFilename}</p>
-                <p className="text-sm text-muted-foreground">
-                  {document.pageCount} sider • {visiblePages.length} synlige
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={removeDocument}
-                className="gap-2 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-              >
-                <Trash2 className="h-4 w-4" />
-                Fjern PDF
-              </Button>
-            </div>
-          )}
         </section>
 
         {/* Document loaded - show grid and form */}
@@ -79,7 +55,7 @@ const Index = () => {
                     Vælg sider fra dokumentet
                   </h2>
                   <p className="text-muted-foreground">
-                    Klik på en side for at vælge den. Klik på X for at fjerne en side.
+                    {document.originalFilename} • {document.pageCount} sider
                   </p>
                 </div>
 
@@ -97,12 +73,10 @@ const Index = () => {
               </div>
 
               <PageGrid
-                visiblePages={visiblePages}
+                totalPages={document.pageCount}
                 selectedPages={selectedPages}
                 allocatedPages={allocatedPages}
                 onPageClick={togglePageSelection}
-                onRemovePage={removePage}
-                pdfFile={document.file}
               />
             </section>
 
