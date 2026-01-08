@@ -140,3 +140,8 @@ export async function deleteDocument(documentId: string): Promise<void> {
 export function getDownloadUrl(noteId: string): string {
   return API_ENDPOINTS.downloadDeliveryNote(noteId);
 }
+
+// Preview delivery note (first page)
+export function getPreviewUrl(noteId: string): string {
+  return API_ENDPOINTS.previewDeliveryNote(noteId);
+}
