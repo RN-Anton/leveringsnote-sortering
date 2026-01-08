@@ -69,6 +69,17 @@ export function useDeliveryNotes() {
     setLastCreatedNoteId(null);
   }, [document]);
 
+  // Finish with document - clear view but keep notes on backend
+  const finishDocument = useCallback(() => {
+    setDocument(null);
+    setSelectedPages(new Set());
+    setAllocatedPages(new Map());
+    setRemovedPages(new Set());
+    setDeliveryNotes([]);
+    setLastCreatedNoteId(null);
+    toast.success("Færdig - følgesedler gemt");
+  }, []);
+
   // Remove a single page (hide it from selection - local only)
   const removePage = useCallback((pageNumber: number) => {
     if (allocatedPages.has(pageNumber)) return;
@@ -249,6 +260,7 @@ export function useDeliveryNotes() {
     lastCreatedNoteId,
     handleFileUpload,
     clearDocument,
+    finishDocument,
     removePage,
     restorePage,
     restoreAllPages,
