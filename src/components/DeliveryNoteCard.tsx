@@ -1,7 +1,8 @@
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
-import { FileText, Building2, Calendar, Layers, Undo2 } from "lucide-react";
+import { FileText, Building2, Calendar, Layers, Undo2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getDownloadUrl } from "@/services/api";
 import type { DeliveryNote } from "@/types/pdf";
 
 interface DeliveryNoteCardProps {
@@ -54,9 +55,16 @@ export function DeliveryNoteCard({
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
-            <FileText className="h-4 w-4" />
-            Se PDF
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            asChild
+          >
+            <a href={getDownloadUrl(note.id)} download>
+              <Download className="h-4 w-4" />
+              Download PDF
+            </a>
           </Button>
 
           {showUndo && onUndo && (

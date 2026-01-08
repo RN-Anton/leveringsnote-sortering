@@ -15,6 +15,7 @@ const Index = () => {
     allocatedPages,
     removedPages,
     isProcessing,
+    isSubmitting,
     lastCreatedNoteId,
     handleFileUpload,
     clearDocument,
@@ -117,7 +118,7 @@ const Index = () => {
                 selectedCount={selectedPages.size}
                 onSubmit={handleSubmit}
                 onClearSelection={clearSelection}
-                isSubmitting={false}
+                isSubmitting={isSubmitting}
               />
             </section>
 
