@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { format } from "date-fns";
 import { da } from "date-fns/locale";
 import {
@@ -8,55 +8,42 @@ import {
   FileText,
   Building2,
   FolderOpen,
+  Download,
+  Loader2,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { getDeliveryNotes, getDownloadUrl } from "@/services/api";
 import type { DeliveryNote } from "@/types/pdf";
 
 type SortField = "createdAt" | "displayName" | "companyName";
 type SortDirection = "asc" | "desc";
 
-// Demo data for the dashboard
-const demoNotes: DeliveryNote[] = [
-  {
-    id: "1",
-    documentId: "doc-1",
-    displayName: "Levering marts 2024",
-    companyName: "Nordjysk Handel A/S",
-    createdAt: new Date("2024-03-15T10:30:00"),
-    pageNumbers: [1, 2, 3],
-  },
-  {
-    id: "2",
-    documentId: "doc-1",
-    displayName: "Faktura 2024-001",
-    companyName: "Region Nordjylland",
-    createdAt: new Date("2024-03-14T14:15:00"),
-    pageNumbers: [4, 5],
-  },
-  {
-    id: "3",
-    documentId: "doc-2",
-    displayName: "Kvittering februar",
-    companyName: "Aalborg Kommune",
-    createdAt: new Date("2024-02-28T09:00:00"),
-    pageNumbers: [1],
-  },
-  {
-    id: "4",
-    documentId: "doc-2",
-    displayName: "Ordrebekræftelse",
-    companyName: "Dansk Logistik ApS",
-    createdAt: new Date("2024-02-20T16:45:00"),
-    pageNumbers: [2, 3, 4, 5, 6],
-  },
-];
-
 const Dashboard = () => {
+  const [notes, setNotes] = useState<DeliveryNote[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  // Fetch notes from API on mount
+  useEffect(() => {
+    const fetchNotes = async () => {
+      try {
+        const data = await getDeliveryNotes();
+        setNotes(data);
+      } catch (error) {
+        console.error("Error fetching notes:", error);
+        toast.error("Kunne ikke hente følgesedler");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNotes();
+  }, []);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -68,7 +55,7 @@ const Dashboard = () => {
   };
 
   const filteredAndSortedNotes = useMemo(() => {
-    let result = [...demoNotes];
+    let result = [...notes];
 
     // Filter by search query
     if (searchQuery.trim()) {
@@ -98,7 +85,7 @@ const Dashboard = () => {
     });
 
     return result;
-  }, [searchQuery, sortField, sortDirection]);
+  }, [notes, searchQuery, sortField, sortDirection]);
 
   const SortButton = ({
     field,
@@ -167,8 +154,13 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Results */}
-        {filteredAndSortedNotes.length > 0 ? (
+        {/* Loading state */}
+        {isLoading ? (
+          <div className="py-16 text-center">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="mt-4 text-muted-foreground">Henter følgesedler...</p>
+          </div>
+        ) : filteredAndSortedNotes.length > 0 ? (
           <div className="space-y-3">
             {filteredAndSortedNotes.map((note) => (
               <div
@@ -196,9 +188,11 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <Button variant="outline" size="sm" className="shrink-0 gap-2">
-                  <FileText className="h-4 w-4" />
-                  Åbn
+                <Button variant="outline" size="sm" className="shrink-0 gap-2" asChild>
+                  <a href={getDownloadUrl(note.id)} download>
+                    <Download className="h-4 w-4" />
+                    Download
+                  </a>
                 </Button>
               </div>
             ))}
