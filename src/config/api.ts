@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
   getDeliveryNote: (id: string) => `${API_BASE_URL}/api/delivery-notes/${id}`,
   deleteDeliveryNote: (id: string) => `${API_BASE_URL}/api/delivery-notes/${id}`,
   downloadDeliveryNote: (id: string) => `${API_BASE_URL}/api/delivery-notes/${id}/download`,
+  previewDeliveryNote: (id: string) => `${API_BASE_URL}/api/delivery-notes/${id}/preview`,
   
   // Health
   health: `${API_BASE_URL}/api/health`,
