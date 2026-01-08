@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { pdfjsLib } from "@/lib/pdfWorker";
 import type { DeliveryNote, PDFDocument } from "@/types/pdf";
 
 // Generate unique ID (in production, use uuid or backend-generated IDs)
@@ -13,31 +14,83 @@ export function useDeliveryNotes() {
   const [allocatedPages, setAllocatedPages] = useState<Map<number, string>>(
     new Map()
   );
+  const [removedPages, setRemovedPages] = useState<Set<number>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastCreatedNoteId, setLastCreatedNoteId] = useState<string | null>(null);
 
-  // Handle file upload
+  // Handle file upload - replaces current PDF
   const handleFileUpload = useCallback(async (file: File) => {
     setIsProcessing(true);
 
-    // Simulate PDF processing (in production, use pdf.js or backend)
-    // For demo, we'll simulate a 12-page document
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Get actual page count from PDF
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pageCount = pdf.numPages;
 
-    const newDocument: PDFDocument = {
-      id: generateId(),
-      originalFilename: file.name,
-      uploadDate: new Date(),
-      pageCount: 12, // Simulated page count
-      file,
-    };
+      const newDocument: PDFDocument = {
+        id: generateId(),
+        originalFilename: file.name,
+        uploadDate: new Date(),
+        pageCount,
+        file,
+      };
 
-    setDocument(newDocument);
+      // Reset all state for new document
+      setDocument(newDocument);
+      setSelectedPages(new Set());
+      setAllocatedPages(new Map());
+      setRemovedPages(new Set());
+      setDeliveryNotes([]);
+      setLastCreatedNoteId(null);
+    } catch (error) {
+      console.error("Error loading PDF:", error);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
+  // Remove entire document
+  const clearDocument = useCallback(() => {
+    setDocument(null);
     setSelectedPages(new Set());
     setAllocatedPages(new Map());
+    setRemovedPages(new Set());
     setDeliveryNotes([]);
-    setIsProcessing(false);
     setLastCreatedNoteId(null);
+  }, []);
+
+  // Remove a single page (hide it from selection)
+  const removePage = useCallback((pageNumber: number) => {
+    // Can't remove allocated pages
+    if (allocatedPages.has(pageNumber)) return;
+
+    setRemovedPages((prev) => {
+      const next = new Set(prev);
+      next.add(pageNumber);
+      return next;
+    });
+
+    // Also remove from selection if selected
+    setSelectedPages((prev) => {
+      const next = new Set(prev);
+      next.delete(pageNumber);
+      return next;
+    });
+  }, [allocatedPages]);
+
+  // Restore a removed page
+  const restorePage = useCallback((pageNumber: number) => {
+    setRemovedPages((prev) => {
+      const next = new Set(prev);
+      next.delete(pageNumber);
+      return next;
+    });
+  }, []);
+
+  // Restore all removed pages
+  const restoreAllPages = useCallback(() => {
+    setRemovedPages(new Set());
   }, []);
 
   // Toggle page selection
@@ -150,9 +203,14 @@ export function useDeliveryNotes() {
     deliveryNotes,
     selectedPages,
     allocatedPages,
+    removedPages,
     isProcessing,
     lastCreatedNoteId,
     handleFileUpload,
+    clearDocument,
+    removePage,
+    restorePage,
+    restoreAllPages,
     togglePageSelection,
     clearSelection,
     createDeliveryNote,

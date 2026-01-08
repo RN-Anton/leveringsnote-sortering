@@ -1,4 +1,4 @@
-import { Undo2 } from "lucide-react";
+import { Undo2, Trash2, RotateCcw } from "lucide-react";
 import { Header } from "@/components/Header";
 import { UploadZone } from "@/components/UploadZone";
 import { PageGrid } from "@/components/PageGrid";
@@ -13,9 +13,13 @@ const Index = () => {
     deliveryNotes,
     selectedPages,
     allocatedPages,
+    removedPages,
     isProcessing,
     lastCreatedNoteId,
     handleFileUpload,
+    clearDocument,
+    removePage,
+    restoreAllPages,
     togglePageSelection,
     clearSelection,
     createDeliveryNote,
@@ -49,34 +53,61 @@ const Index = () => {
           <>
             {/* Page Selection Section */}
             <section className="mb-8 animate-fade-in">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-foreground">
                     Vælg sider fra dokumentet
                   </h2>
                   <p className="text-muted-foreground">
-                    {document.originalFilename} • {document.pageCount} sider
+                    {document.originalFilename} • {document.pageCount - removedPages.size} af {document.pageCount} sider
                   </p>
                 </div>
 
-                {/* Global undo button */}
-                {lastCreatedNoteId && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Restore removed pages */}
+                  {removedPages.size > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={restoreAllPages}
+                      className="gap-2"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Gendan sider ({removedPages.size})
+                    </Button>
+                  )}
+
+                  {/* Global undo button */}
+                  {lastCreatedNoteId && (
+                    <Button
+                      variant="outline"
+                      onClick={undoLastNote}
+                      className="gap-2"
+                    >
+                      <Undo2 className="h-4 w-4" />
+                      Fortryd seneste
+                    </Button>
+                  )}
+
+                  {/* Remove PDF button */}
                   <Button
                     variant="outline"
-                    onClick={undoLastNote}
-                    className="gap-2"
+                    onClick={clearDocument}
+                    className="gap-2 text-destructive hover:bg-destructive hover:text-destructive-foreground"
                   >
-                    <Undo2 className="h-4 w-4" />
-                    Fortryd seneste
+                    <Trash2 className="h-4 w-4" />
+                    Fjern PDF
                   </Button>
-                )}
+                </div>
               </div>
 
               <PageGrid
                 totalPages={document.pageCount}
                 selectedPages={selectedPages}
                 allocatedPages={allocatedPages}
+                removedPages={removedPages}
                 onPageClick={togglePageSelection}
+                onRemovePage={removePage}
+                file={document.file}
               />
             </section>
 
