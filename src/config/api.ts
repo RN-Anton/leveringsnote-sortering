@@ -1,8 +1,9 @@
 // API Configuration
-// Uses environment variable from GitLab CI/CD or falls back to default
+// In production: Set VITE_SERVER_IP and VITE_SERVER_PORT as GitLab CI/CD variables
+// For testing: Values are set in .env file
 
-const SERVER_IP = import.meta.env.VITE_SERVER_IP || "10.253.129.201";
-const SERVER_PORT = import.meta.env.VITE_SERVER_PORT || "3122";
+const SERVER_IP = import.meta.env.VITE_SERVER_IP;
+const SERVER_PORT = import.meta.env.VITE_SERVER_PORT;
 
 export const API_BASE_URL = `http://${SERVER_IP}:${SERVER_PORT}`;
 
