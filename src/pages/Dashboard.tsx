@@ -12,6 +12,9 @@ import {
   Loader2,
   Eye,
   X,
+  Truck,
+  Hash,
+  User,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Input } from "@/components/ui/input";
@@ -20,14 +23,14 @@ import { toast } from "sonner";
 import { getDeliveryNotes, getDownloadUrl, getPreviewUrl } from "@/services/api";
 import type { DeliveryNote } from "@/types/pdf";
 
-type SortField = "createdAt" | "displayName" | "companyName";
+type SortField = "deliveryDate" | "deliveryNoteNumber" | "shippingId" | "customerNumber" | "companyName";
 type SortDirection = "asc" | "desc";
 
 const Dashboard = () => {
   const [notes, setNotes] = useState<DeliveryNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortField, setSortField] = useState<SortField>("createdAt");
+  const [sortField, setSortField] = useState<SortField>("deliveryDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [selectedNote, setSelectedNote] = useState<DeliveryNote | null>(null);
 
@@ -60,13 +63,16 @@ const Dashboard = () => {
   const filteredAndSortedNotes = useMemo(() => {
     let result = [...notes];
 
-    // Filter by search query
+    // Filter by search query across all relevant fields
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (note) =>
-          note.displayName.toLowerCase().includes(query) ||
-          note.companyName.toLowerCase().includes(query)
+          (note.deliveryNoteNumber?.toLowerCase() || "").includes(query) ||
+          (note.shippingId?.toLowerCase() || "").includes(query) ||
+          (note.customerNumber?.toLowerCase() || "").includes(query) ||
+          (note.companyName?.toLowerCase() || "").includes(query) ||
+          (note.deliveryDate?.toLowerCase() || "").includes(query)
       );
     }
 
@@ -74,14 +80,20 @@ const Dashboard = () => {
     result.sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
-        case "createdAt":
-          comparison = a.createdAt.getTime() - b.createdAt.getTime();
+        case "deliveryDate":
+          comparison = (a.deliveryDate || "").localeCompare(b.deliveryDate || "");
           break;
-        case "displayName":
-          comparison = a.displayName.localeCompare(b.displayName, "da");
+        case "deliveryNoteNumber":
+          comparison = (a.deliveryNoteNumber || "").localeCompare(b.deliveryNoteNumber || "", "da");
+          break;
+        case "shippingId":
+          comparison = (a.shippingId || "").localeCompare(b.shippingId || "", "da");
+          break;
+        case "customerNumber":
+          comparison = (a.customerNumber || "").localeCompare(b.customerNumber || "", "da");
           break;
         case "companyName":
-          comparison = a.companyName.localeCompare(b.companyName, "da");
+          comparison = (a.companyName || "").localeCompare(b.companyName || "", "da");
           break;
       }
       return sortDirection === "asc" ? comparison : -comparison;
@@ -179,7 +191,7 @@ const Dashboard = () => {
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Søg efter navn eller firma..."
+                  placeholder="Søg i dato, følgeseddel, forsendelse, kunde, firma..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -191,8 +203,10 @@ const Dashboard = () => {
                 <span className="flex items-center text-sm text-muted-foreground">
                   Sorter efter:
                 </span>
-                <SortButton field="createdAt" label="Dato" icon={Calendar} />
-                <SortButton field="displayName" label="Navn" icon={FileText} />
+                <SortButton field="deliveryDate" label="Dato" icon={Calendar} />
+                <SortButton field="deliveryNoteNumber" label="Følgeseddel" icon={FileText} />
+                <SortButton field="shippingId" label="Forsendelse" icon={Truck} />
+                <SortButton field="customerNumber" label="Kunde" icon={User} />
                 <SortButton field="companyName" label="Firma" icon={Building2} />
               </div>
             </div>
@@ -215,22 +229,33 @@ const Dashboard = () => {
                   >
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate font-semibold text-foreground">
-                        {note.displayName}
+                        {note.deliveryNoteNumber || note.displayName || "Ukendt"}
                       </h3>
                       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Building2 className="h-3.5 w-3.5" />
-                          {note.companyName}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {format(note.createdAt, "d. MMM yyyy", { locale: da })}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <FileText className="h-3.5 w-3.5" />
-                          {note.pageNumbers.length}{" "}
-                          {note.pageNumbers.length === 1 ? "side" : "sider"}
-                        </span>
+                        {note.deliveryDate && (
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {note.deliveryDate}
+                          </span>
+                        )}
+                        {note.companyName && (
+                          <span className="flex items-center gap-1">
+                            <Building2 className="h-3.5 w-3.5" />
+                            {note.companyName}
+                          </span>
+                        )}
+                        {note.shippingId && (
+                          <span className="flex items-center gap-1">
+                            <Truck className="h-3.5 w-3.5" />
+                            {note.shippingId}
+                          </span>
+                        )}
+                        {note.customerNumber && (
+                          <span className="flex items-center gap-1">
+                            <User className="h-3.5 w-3.5" />
+                            {note.customerNumber}
+                          </span>
+                        )}
                       </div>
                     </div>
 
