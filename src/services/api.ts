@@ -137,19 +137,21 @@ export async function getDeliveryNotes(documentId?: string): Promise<DeliveryNot
     throw new Error(error.detail || "Kunne ikke hente følgesedler");
   }
 
-  const data: GetNotesResponse = await response.json();
+  // Backend returns array directly, not wrapped in { notes: [] }
+  const data = await response.json();
+  const notes = Array.isArray(data) ? data : data.notes || [];
 
-  return data.notes.map((note) => ({
-    id: note.id,
-    documentId: note.documentId,
-    displayName: note.displayName || note.displayName,
-    companyName: note.companyName || note.companyName,
-    deliveryDate: note.deliveryDate || note.delivery_date,
-    deliveryNoteNumber: note.deliveryNoteNumber || note.delivery_note_number,
-    shippingId: note.shippingId || note.shipping_id,
-    customerNumber: note.customerNumber || note.customer_number,
-    createdAt: new Date(note.createdAt || note.created_at || new Date()),
-    pageNumbers: note.pageNumbers,
+  return notes.map((note: Record<string, unknown>) => ({
+    id: note.id as string,
+    documentId: (note.documentId || note.document_id) as string,
+    displayName: (note.displayName || note.display_name) as string,
+    companyName: (note.companyName || note.company_name) as string,
+    deliveryDate: (note.deliveryDate || note.delivery_date) as string | undefined,
+    deliveryNoteNumber: (note.deliveryNoteNumber || note.delivery_note_number) as string | undefined,
+    shippingId: (note.shippingId || note.shipping_id) as string | undefined,
+    customerNumber: (note.customerNumber || note.customer_number) as string | undefined,
+    createdAt: new Date((note.createdAt || note.created_at || new Date()) as string),
+    pageNumbers: (note.pageNumbers || []) as number[],
   }));
 }
 
