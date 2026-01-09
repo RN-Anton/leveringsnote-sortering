@@ -47,9 +47,14 @@ export interface UploadState {
 }
 
 export interface BatchProcessingProgress {
-  status: 'idle' | 'processing_file' | 'completed' | 'error' | 'warning';
+  status: 'idle' | 'analyzing' | 'processing_file' | 'completed' | 'error' | 'warning';
+  current_file?: string;
   currentFile?: string;
+  page?: number;
+  total_pages?: number;
+  file_index?: number;
   fileIndex?: number;
+  total_files?: number;
   totalFiles?: number;
   progress: number;
   message?: string;

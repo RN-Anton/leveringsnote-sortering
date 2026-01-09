@@ -7,9 +7,19 @@ interface ProcessingProgressProps {
 }
 
 export function ProcessingProgress({ progress }: ProcessingProgressProps) {
-  const { status, currentFile, fileIndex, totalFiles, progress: percent, message } = progress;
+  // Normalize snake_case from backend to camelCase
+  const status = progress.status;
+  const currentFile = progress.current_file || progress.currentFile;
+  const page = progress.page;
+  const totalPages = progress.total_pages;
+  const fileIndex = progress.file_index || progress.fileIndex;
+  const totalFiles = progress.total_files || progress.totalFiles;
+  const percent = progress.progress;
+  const message = progress.message;
 
   if (status === "idle") return null;
+
+  const isProcessing = status === "analyzing" || status === "processing_file";
 
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm animate-fade-in">
@@ -31,7 +41,7 @@ export function ProcessingProgress({ progress }: ProcessingProgressProps) {
                 ? "Fejl under behandling"
                 : "Analyserer PDF-filer..."}
             </h3>
-            {status === "processing_file" && totalFiles && (
+            {isProcessing && totalFiles && totalFiles > 1 && (
               <p className="text-sm text-muted-foreground">
                 Fil {fileIndex} af {totalFiles}
               </p>
@@ -44,7 +54,7 @@ export function ProcessingProgress({ progress }: ProcessingProgressProps) {
           <Progress value={percent} className="h-3" />
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{percent}%</span>
-            {currentFile && status === "processing_file" && (
+            {currentFile && isProcessing && (
               <span className="flex items-center gap-2 text-muted-foreground">
                 <FileText className="h-4 w-4" />
                 {currentFile}
@@ -52,6 +62,13 @@ export function ProcessingProgress({ progress }: ProcessingProgressProps) {
             )}
           </div>
         </div>
+
+        {/* Page-level progress */}
+        {isProcessing && page && totalPages && (
+          <div className="text-sm text-muted-foreground text-center">
+            Analyserer side {page} af {totalPages}
+          </div>
+        )}
 
         {/* Warning/Error message */}
         {(status === "warning" || status === "error") && message && (
