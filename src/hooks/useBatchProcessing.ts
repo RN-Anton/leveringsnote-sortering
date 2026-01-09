@@ -35,17 +35,26 @@ export function useBatchProcessing() {
     setProgress({ status: "analyzing", progress: 0, totalFiles: files.length });
 
     try {
+      let processingCompleted = false;
+      
       await api.batchProcessFiles(files, (progressData) => {
+        console.log("SSE Progress:", progressData);
         setProgress(progressData);
 
         if (progressData.status === "warning") {
           toast.warning(progressData.message);
         }
+        
+        if (progressData.status === "completed") {
+          processingCompleted = true;
+        }
       });
 
-      // Fetch the created notes after processing completes
+      // Always fetch notes after stream ends
+      console.log("Stream ended, fetching notes...");
       try {
         const notes = await api.getDeliveryNotes();
+        console.log("Fetched notes:", notes);
         setDeliveryNotes(notes);
         toast.success(`AI-analyse fuldført - ${notes.length} følgesedler fundet`);
       } catch (fetchError) {
