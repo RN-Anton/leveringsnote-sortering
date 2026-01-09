@@ -41,6 +41,10 @@
     --success: 145 65% 42%;
     --success-foreground: 0 0% 100%;
 
+    /* Warning amber for missing fields */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
     --border: 210 20% 88%;
     --input: 210 20% 88%;
     --ring: 215 100% 20%;
@@ -100,6 +104,9 @@
 
     --success: 145 55% 45%;
     --success-foreground: 0 0% 100%;
+
+    --warning: 38 80% 55%;
+    --warning-foreground: 0 0% 0%;
 
     --border: 215 40% 22%;
     --input: 215 40% 22%;
