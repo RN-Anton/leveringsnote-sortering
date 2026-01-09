@@ -1,9 +1,12 @@
-import { FileText, LayoutDashboard } from "lucide-react";
+import { FileText, LayoutDashboard, Moon, Sun } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/hooks/useTheme";
+import { Button } from "@/components/ui/button";
 
 export function Header() {
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
   const navItems = [
     { href: "/", label: "Upload", icon: FileText },
@@ -49,6 +52,20 @@ export function Header() {
               </Link>
             );
           })}
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="ml-2"
+            aria-label={theme === "dark" ? "Skift til lyst tema" : "Skift til mørkt tema"}
+          >
+            {theme === "dark" ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+          </Button>
         </nav>
       </div>
     </header>
