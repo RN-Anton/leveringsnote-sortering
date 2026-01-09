@@ -32,7 +32,7 @@ export function useBatchProcessing() {
     }
 
     setIsProcessing(true);
-    setProgress({ status: "processing_file", progress: 0, totalFiles: files.length });
+    setProgress({ status: "analyzing", progress: 0, totalFiles: files.length });
 
     try {
       await api.batchProcessFiles(files, (progressData) => {
@@ -43,12 +43,18 @@ export function useBatchProcessing() {
         }
       });
 
-      // Fetch the created notes after processing
-      const notes = await api.getDeliveryNotes();
-      setDeliveryNotes(notes);
+      // Fetch the created notes after processing completes
+      try {
+        const notes = await api.getDeliveryNotes();
+        setDeliveryNotes(notes);
+        toast.success(`AI-analyse fuldført - ${notes.length} følgesedler fundet`);
+      } catch (fetchError) {
+        console.error("Error fetching notes after processing:", fetchError);
+        toast.warning("Behandling fuldført, men kunne ikke hente resultater");
+      }
 
-      toast.success("AI-analyse fuldført");
       setFiles([]);
+      setProgress({ status: "completed", progress: 100 });
     } catch (error) {
       console.error("Batch processing error:", error);
       setProgress({

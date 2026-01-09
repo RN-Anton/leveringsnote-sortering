@@ -59,6 +59,7 @@ export async function batchProcessFiles(
   }
 
   const decoder = new TextDecoder();
+  let completed = false;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -70,13 +71,22 @@ export async function batchProcessFiles(
     for (const line of lines) {
       if (line.startsWith("data: ")) {
         try {
-          const data = JSON.parse(line.slice(6));
-          onProgress(data as BatchProcessingProgress);
+          const data = JSON.parse(line.slice(6)) as BatchProcessingProgress;
+          onProgress(data);
+          
+          if (data.status === "completed") {
+            completed = true;
+          }
         } catch {
           // Ignore parse errors
         }
       }
     }
+  }
+
+  // Ensure we signal completion if stream ended without explicit completed status
+  if (!completed) {
+    onProgress({ status: "completed", progress: 100 });
   }
 }
 
