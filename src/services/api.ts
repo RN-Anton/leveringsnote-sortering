@@ -1,15 +1,7 @@
 import { API_ENDPOINTS } from "@/config/api";
-import type { DeliveryNote, PDFDocument } from "@/types/pdf";
+import type { DeliveryNote, BatchProcessingProgress } from "@/types/pdf";
 
 // API Response types
-interface UploadResponse {
-  id: string;
-  originalFilename: string;
-  uploadDate: string;
-  fileHash: string;
-  pageCount: number;
-}
-
 interface CreateNoteResponse {
   id: string;
   status: string;
@@ -26,37 +18,66 @@ interface GetNotesResponse {
     documentId: string;
     displayName: string;
     companyName: string;
+    deliveryDate?: string;
+    delivery_date?: string;
+    deliveryNoteNumber?: string;
+    delivery_note_number?: string;
+    shippingId?: string;
+    shipping_id?: string;
+    customerNumber?: string;
+    customer_number?: string;
     createdAt: string;
+    created_at?: string;
     pageNumbers: number[];
   }>;
   total: number;
 }
 
-// Upload a PDF document
-export async function uploadDocument(file: File): Promise<PDFDocument> {
+// Batch process files with SSE streaming
+export async function batchProcessFiles(
+  files: File[],
+  onProgress: (progress: BatchProcessingProgress) => void
+): Promise<void> {
   const formData = new FormData();
-  formData.append("file", file);
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
 
-  const response = await fetch(API_ENDPOINTS.uploadDocument, {
+  const response = await fetch(API_ENDPOINTS.batchProcess, {
     method: "POST",
     body: formData,
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Upload fejlede" }));
-    throw new Error(error.detail || "Upload fejlede");
+    const error = await response.json().catch(() => ({ detail: "Batch behandling fejlede" }));
+    throw new Error(error.detail || "Batch behandling fejlede");
   }
 
-  const data: UploadResponse = await response.json();
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("Kunne ikke læse stream");
+  }
 
-  return {
-    id: data.id,
-    originalFilename: data.originalFilename,
-    uploadDate: new Date(data.uploadDate),
-    fileHash: data.fileHash,
-    pageCount: data.pageCount,
-    file, // Keep the file reference for thumbnail rendering
-  };
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value, { stream: true });
+    const lines = chunk.split("\n");
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          onProgress(data as BatchProcessingProgress);
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+  }
 }
 
 // Create a delivery note
@@ -64,6 +85,10 @@ export async function createDeliveryNote(params: {
   documentId: string;
   displayName: string;
   companyName: string;
+  deliveryDate?: string;
+  deliveryNoteNumber?: string;
+  shippingId?: string;
+  customerNumber?: string;
   pageNumbers: number[];
 }): Promise<string> {
   const response = await fetch(API_ENDPOINTS.deliveryNotes, {
@@ -117,9 +142,13 @@ export async function getDeliveryNotes(documentId?: string): Promise<DeliveryNot
   return data.notes.map((note) => ({
     id: note.id,
     documentId: note.documentId,
-    displayName: note.displayName,
-    companyName: note.companyName,
-    createdAt: new Date(note.createdAt),
+    displayName: note.displayName || note.displayName,
+    companyName: note.companyName || note.companyName,
+    deliveryDate: note.deliveryDate || note.delivery_date,
+    deliveryNoteNumber: note.deliveryNoteNumber || note.delivery_note_number,
+    shippingId: note.shippingId || note.shipping_id,
+    customerNumber: note.customerNumber || note.customer_number,
+    createdAt: new Date(note.createdAt || note.created_at || new Date()),
     pageNumbers: note.pageNumbers,
   }));
 }

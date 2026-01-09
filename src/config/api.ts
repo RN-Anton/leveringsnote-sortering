@@ -11,8 +11,10 @@ export const API_BASE_URL = `http://${SERVER_IP}:${SERVER_PORT}`;
 export const API_ENDPOINTS = {
   // Documents
   uploadDocument: `${API_BASE_URL}/api/documents/upload`,
+  batchProcess: `${API_BASE_URL}/api/documents/batch-process`,
   getDocument: (id: string) => `${API_BASE_URL}/api/documents/${id}`,
   deleteDocument: (id: string) => `${API_BASE_URL}/api/documents/${id}`,
+  listDocuments: `${API_BASE_URL}/api/documents`,
   
   // Delivery Notes
   deliveryNotes: `${API_BASE_URL}/api/delivery-notes`,

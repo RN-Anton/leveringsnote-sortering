@@ -1,70 +1,88 @@
-import { useCallback, useState } from "react";
-import { Upload, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useCallback, useState, useRef } from "react";
+import { Upload, FolderOpen, AlertCircle, CheckCircle2, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface UploadZoneProps {
-  onFileSelect: (file: File) => void;
+  onFilesSelect: (files: File[]) => void;
   isProcessing: boolean;
+  selectedCount?: number;
 }
 
 // Security: Allowed MIME types
 const ALLOWED_MIME_TYPES = ["application/pdf"];
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB for batch
 
 // Security: Sanitize filename
 function sanitizeFilename(filename: string): string {
   return filename
-    .replace(/[^\w\s.-]/g, "_") // Replace special chars
-    .replace(/\.{2,}/g, ".") // Prevent directory traversal
-    .replace(/^\.+/, "") // Remove leading dots
-    .slice(0, 255); // Limit length
+    .replace(/[^\w\s.-]/g, "_")
+    .replace(/\.{2,}/g, ".")
+    .replace(/^\.+/, "")
+    .slice(0, 255);
 }
 
-export function UploadZone({ onFileSelect, isProcessing }: UploadZoneProps) {
+export function UploadZone({ onFilesSelect, isProcessing, selectedCount = 0 }: UploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const validateFile = useCallback((file: File): string | null => {
-    // Security: MIME type validation
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      return "Filtypen understøttes ikke. Kun PDF-filer er tilladt.";
+    if (!ALLOWED_MIME_TYPES.includes(file.type) && !file.name.toLowerCase().endsWith(".pdf")) {
+      return `"${file.name}" understøttes ikke. Kun PDF-filer er tilladt.`;
     }
 
-    // Security: File size validation (DoS prevention)
     if (file.size > MAX_FILE_SIZE) {
-      return "Filen er for stor. Maksimum filstørrelse er 20MB.";
-    }
-
-    // Basic filename validation
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      return "Filen skal have en .pdf-filendelse.";
+      return `"${file.name}" er for stor. Maksimum filstørrelse er 100MB.`;
     }
 
     return null;
   }, []);
 
-  const handleFile = useCallback(
-    (file: File) => {
+  const handleFiles = useCallback(
+    (fileList: FileList | File[]) => {
       setError(null);
       setSuccess(null);
 
-      const validationError = validateFile(file);
-      if (validationError) {
-        setError(validationError);
-        return;
+      const files = Array.from(fileList);
+      const pdfFiles: File[] = [];
+      const errors: string[] = [];
+
+      for (const file of files) {
+        // Skip non-PDF files silently in folder mode
+        if (!file.name.toLowerCase().endsWith(".pdf")) {
+          continue;
+        }
+
+        const validationError = validateFile(file);
+        if (validationError) {
+          errors.push(validationError);
+          continue;
+        }
+
+        const sanitizedName = sanitizeFilename(file.name);
+        const sanitizedFile = new File([file], sanitizedName, { type: "application/pdf" });
+        pdfFiles.push(sanitizedFile);
       }
 
-      // Create a new file with sanitized name
-      const sanitizedName = sanitizeFilename(file.name);
-      const sanitizedFile = new File([file], sanitizedName, {
-        type: file.type,
-      });
+      if (errors.length > 0) {
+        setError(errors[0]);
+      }
 
-      setSuccess(`"${sanitizedName}" er klar til behandling`);
-      onFileSelect(sanitizedFile);
+      if (pdfFiles.length > 0) {
+        setSuccess(
+          pdfFiles.length === 1
+            ? `"${pdfFiles[0].name}" er klar til læsning`
+            : `${pdfFiles.length} PDF-filer er klar til læsning`
+        );
+        onFilesSelect(pdfFiles);
+      } else if (errors.length === 0) {
+        setError("Ingen PDF-filer fundet.");
+      }
     },
-    [validateFile, onFileSelect]
+    [validateFile, onFilesSelect]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -85,29 +103,68 @@ export function UploadZone({ onFileSelect, isProcessing }: UploadZoneProps) {
       e.stopPropagation();
       setIsDragging(false);
 
-      const files = Array.from(e.dataTransfer.files);
+      const items = e.dataTransfer.items;
+      const files: File[] = [];
+
+      // Handle dropped files
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+
       if (files.length > 0) {
-        handleFile(files[0]);
+        handleFiles(files);
       }
     },
-    [handleFile]
+    [handleFiles]
   );
 
-  const handleInputChange = useCallback(
+  const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (files && files.length > 0) {
-        handleFile(files[0]);
+        handleFiles(files);
       }
-      // Reset input so same file can be selected again
       e.target.value = "";
     },
-    [handleFile]
+    [handleFiles]
   );
+
+  const openFolderDialog = () => {
+    folderInputRef.current?.click();
+  };
+
+  const openFileDialog = () => {
+    fileInputRef.current?.click();
+  };
 
   return (
     <div className="space-y-4">
-      <label
+      {/* Hidden inputs */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        multiple
+        onChange={handleFileInput}
+        className="sr-only"
+        disabled={isProcessing}
+      />
+      <input
+        ref={folderInputRef}
+        type="file"
+        accept=".pdf,application/pdf"
+        onChange={handleFileInput}
+        className="sr-only"
+        disabled={isProcessing}
+        {...{ webkitdirectory: "", directory: "" } as any}
+      />
+
+      {/* Drop zone */}
+      <div
         className={cn(
           "upload-zone cursor-pointer",
           isDragging && "drag-over",
@@ -116,15 +173,8 @@ export function UploadZone({ onFileSelect, isProcessing }: UploadZoneProps) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onClick={openFileDialog}
       >
-        <input
-          type="file"
-          accept=".pdf,application/pdf"
-          onChange={handleInputChange}
-          className="sr-only"
-          disabled={isProcessing}
-        />
-
         <div className="flex flex-col items-center gap-4 text-center">
           <div
             className={cn(
@@ -147,17 +197,35 @@ export function UploadZone({ onFileSelect, isProcessing }: UploadZoneProps) {
           <div className="space-y-2">
             <p className="text-lg font-semibold text-foreground">
               {isProcessing
-                ? "Behandler PDF..."
+                ? "Behandler..."
                 : isDragging
-                ? "Slip filen her"
-                : "Træk en PDF-fil hertil"}
+                ? "Slip filerne her"
+                : "Træk PDF-filer hertil"}
             </p>
             <p className="text-sm text-muted-foreground">
-              eller klik for at vælge en fil (maks. 20MB)
+              eller klik for at vælge filer
             </p>
           </div>
         </div>
-      </label>
+      </div>
+
+      {/* Folder button */}
+      <Button
+        variant="outline"
+        onClick={openFolderDialog}
+        disabled={isProcessing}
+        className="w-full gap-2"
+      >
+        <FolderOpen className="h-4 w-4" />
+        Vælg mappe med PDF-filer
+      </Button>
+
+      {/* Selected count */}
+      {selectedCount > 0 && !error && (
+        <div className="text-center text-sm text-muted-foreground">
+          {selectedCount} {selectedCount === 1 ? "fil" : "filer"} valgt
+        </div>
+      )}
 
       {/* Error message */}
       {error && (

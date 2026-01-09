@@ -7,6 +7,14 @@ export interface PDFDocument {
   file?: File;
 }
 
+export interface UploadedFile {
+  file: File;
+  id?: string;
+  filename: string;
+  status: 'pending' | 'uploading' | 'ready' | 'processing' | 'done' | 'error';
+  error?: string;
+}
+
 export interface PDFPage {
   id: string;
   documentId: string;
@@ -19,8 +27,12 @@ export interface PDFPage {
 export interface DeliveryNote {
   id: string;
   documentId: string;
-  displayName: string; // Navn
-  companyName: string; // Firma
+  displayName: string;
+  companyName: string;
+  deliveryDate?: string;
+  deliveryNoteNumber?: string;
+  shippingId?: string;
+  customerNumber?: string;
   createdAt: Date;
   pageNumbers: number[];
 }
@@ -32,4 +44,13 @@ export interface UploadState {
   isUploading: boolean;
   uploadProgress: number;
   error: string | null;
+}
+
+export interface BatchProcessingProgress {
+  status: 'idle' | 'processing_file' | 'completed' | 'error' | 'warning';
+  currentFile?: string;
+  fileIndex?: number;
+  totalFiles?: number;
+  progress: number;
+  message?: string;
 }
